@@ -7,7 +7,14 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <canvas id="game-canvas"></canvas>
+    <div id="game-container">
+        <div id="score-display">SCORE: 0</div>
+        <canvas id="game-canvas"></canvas>
+        <div id="game-over" class="hidden">
+            <div id="game-over-text">終</div>
+            <button id="restart-button">もう一度遊ぶ</button>
+        </div>
+    </div>
     <script src="script.js"></script>
 </body>
 </html>
