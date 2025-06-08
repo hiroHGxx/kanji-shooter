@@ -1,9 +1,17 @@
-// キャンバスの設定
+// キャンバスとUI要素の設定
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 const scoreDisplay = document.getElementById('score-display');
+const gameOverElement = document.getElementById('game-over');
+const restartButton = document.getElementById('restart-button');
+const gameOverText = document.getElementById('game-over-text');
+
 canvas.width = 800;
 canvas.height = 600;
+
+// ゲーム状態
+let gameActive = true;
+let animationId = null;
 
 // スコア
 let score = 0;
@@ -178,6 +186,8 @@ function checkCollisions() {
 
 let lastTime = 0;
 function gameLoop(timestamp) {
+    if (!gameActive) return;
+    
     // デルタタイムを計算（秒単位）
     const deltaTime = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
@@ -188,9 +198,19 @@ function gameLoop(timestamp) {
     updateEnemies();
     updateExplosions(deltaTime);
     checkCollisions();
+    
+    // プレイヤーと敵の当たり判定
+    for (let enemy of enemies) {
+        if (checkCollision(player, enemy)) {
+            gameOver();
+            return;
+        }
+    }
+    
     draw();
     drawExplosions();
-    requestAnimationFrame(gameLoop);
+    
+    animationId = requestAnimationFrame(gameLoop);
 }
 
 // 弾の配列
@@ -266,14 +286,73 @@ function drawEnemies() {
     }
 }
 
-// ゲームの初期化と開始
-function init() {
+// ゲームをリセットする関数
+function resetGame() {
+    // ゲーム状態をリセット
+    gameActive = true;
+    score = 0;
+    updateScore();
+    
+    // プレイヤーを初期位置に
+    player.x = 100;
+    player.y = canvas.height / 2;
+    
+    // 配列をクリア
+    bullets.length = 0;
+    enemies.length = 0;
+    explosions.length = 0;
+    
+    // 星を再初期化
+    stars.length = 0;
     initStars();
     
-    // 一定間隔で敵を生成
-    setInterval(spawnEnemy, enemySpawnInterval);
+    // ゲームオーバー画面を非表示に
+    gameOverElement.classList.add('hidden');
     
-    gameLoop();
+    // イベントリスナーを設定（重複を防ぐため一度削除してから追加）
+    document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('keyup', handleKeyUp);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    
+    // ゲームループを再開
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+    }
+    lastTime = 0;
+    gameLoop(0);
+}
+
+// ゲームオーバー処理
+function gameOver() {
+    gameActive = false;
+    cancelAnimationFrame(animationId);
+    gameOverElement.classList.remove('hidden');
+    
+    // ゲームオーバー時にスコアを表示
+    gameOverText.textContent = `終\nSCORE: ${score}`;
+}
+
+// リスタートボタンのイベントリスナー
+restartButton.addEventListener('click', resetGame);
+
+// ゲームの初期化と開始
+function init() {
+    // イベントリスナーを設定（重複を防ぐため一度削除してから追加）
+    document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('keyup', handleKeyUp);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    
+    // ゲームをリセットして開始
+    resetGame();
+    
+    // 一定間隔で敵を生成
+    setInterval(() => {
+        if (gameActive) {
+            spawnEnemy();
+        }
+    }, enemySpawnInterval);
 }
 
 // ゲーム開始
