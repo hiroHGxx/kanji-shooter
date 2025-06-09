@@ -169,16 +169,26 @@ function checkCollisions() {
                 // 爆発エフェクトを追加
                 addExplosion(bullets[i].x, bullets[i].y);
 
-                // 弾と敵を削除
+                // 弾は必ず削除
                 bullets.splice(i, 1);
-                enemies.splice(j, 1);
 
-                // スコアを加算
-                score += 10;
-                updateScore();
-
-                // 内側のループを抜ける
-                break;
+                // 耐久型の敵の場合はHPを減らす
+                if (enemies[j].type === 'durable') {
+                    enemies[j].hp -= 1;
+                    // HPが0以下になったら削除＆スコア加算
+                    if (enemies[j].hp <= 0) {
+                        enemies.splice(j, 1);
+                        score += 10;
+                        updateScore();
+                    }
+                    break;
+                } else {
+                    // 通常・その他の敵は即削除＆スコア加算
+                    enemies.splice(j, 1);
+                    score += 10;
+                    updateScore();
+                    break;
+                }
             }
         }
     }
@@ -267,35 +277,56 @@ function drawBullets() {
 
 // 敵を生成する関数
 function spawnEnemy() {
-    // 敵の種類をランダムに決定（80%で通常の敵、20%で攻撃する敵）
-    const enemyType = Math.random() < 0.8 ? 'normal' : 'shooter';
-
-    enemies.push({
+    // 15%でflying、20%でdurable、20%でshooter、残りnormal
+    const rand = Math.random();
+    let enemyType = 'normal';
+    if (rand < 0.15) {
+        enemyType = 'flying';
+    } else if (rand < 0.35) {
+        enemyType = 'durable';
+    } else if (rand < 0.55) {
+        enemyType = 'shooter';
+    }
+    const enemy = {
         x: canvas.width,
-        y: Math.random() * (canvas.height - 48), // 画面内のランダムな高さ
+        y: Math.random() * (canvas.height - 48),
         width: 48,
         height: 48,
-        type: enemyType,
-        lastShot: 0  // 最後に弾を撃った時間を記録
-    });
+        type: enemyType
+    };
+    if (enemyType === 'durable') {
+        enemy.hp = 3;
+    }
+    if (enemyType === 'shooter') {
+        enemy.lastShot = 0;
+    }
+    if (enemyType === 'flying') {
+        enemy.flyingSpeed = 5; // 通常より速い
+        enemy.initialY = enemy.y;
+        enemy.angle = 0;
+    }
+    enemies.push(enemy);
 }
 
 // 敵を更新する関数
 function updateEnemies() {
     const currentTime = Date.now();
-
-    // 敵を移動
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
-        enemy.x -= enemySpeed;
-
+        if (enemy.type === 'flying') {
+            // 水平移動（速い）
+            enemy.x -= enemy.flyingSpeed;
+            // 垂直サイン波運動
+            enemy.angle += 0.1;
+            enemy.y = enemy.initialY + Math.sin(enemy.angle) * 30;
+        } else {
+            enemy.x -= enemySpeed;
+        }
         // 攻撃する敵の場合、一定間隔で弾を撃つ
-        if (enemy.type === 'shooter' && currentTime - enemy.lastShot > 2000) { // 2秒ごとに弾を撃つ
+        if (enemy.type === 'shooter' && currentTime - enemy.lastShot > 2000) {
             fireEnemyBullet(enemy);
             enemy.lastShot = currentTime;
         }
-
-        // 画面外に出た敵を削除
         if (enemy.x < -enemy.width) {
             enemies.splice(i, 1);
         }
@@ -329,26 +360,45 @@ function updateEnemyBullets() {
     }
 }
 
+// 敵を描画する関数
+function drawEnemies() {
+    for (let enemy of enemies) {
+        if (enemy.type === 'normal') {
+            ctx.font = '48px sans-serif';
+            ctx.fillStyle = 'red';
+            ctx.fillText('敵', enemy.x, enemy.y + 40);
+        } else if (enemy.type === 'durable') {
+            if (enemy.hp === 3) {
+                ctx.font = '64px sans-serif';
+                ctx.fillStyle = 'purple';
+                ctx.fillText('大', enemy.x, enemy.y + 54);
+            } else if (enemy.hp === 2) {
+                ctx.font = '40px sans-serif';
+                ctx.fillStyle = 'purple';
+                ctx.fillText('中', enemy.x, enemy.y + 40);
+            } else if (enemy.hp === 1) {
+                ctx.font = '28px sans-serif';
+                ctx.fillStyle = 'purple';
+                ctx.fillText('小', enemy.x, enemy.y + 28);
+            }
+        } else if (enemy.type === 'shooter') {
+            ctx.font = '48px sans-serif';
+            ctx.fillStyle = 'orange';
+            ctx.fillText('攻', enemy.x, enemy.y + 40);
+        } else if (enemy.type === 'flying') {
+            ctx.font = '48px sans-serif';
+            ctx.fillStyle = 'yellow';
+            ctx.fillText('飛', enemy.x, enemy.y + 40);
+        }
+    }
+}
+
 // 敵の弾を描画する関数
 function drawEnemyBullets() {
     ctx.fillStyle = 'orange';
     ctx.font = '24px sans-serif';
     for (let bullet of enemyBullets) {
         ctx.fillText('矢', bullet.x, bullet.y);
-    }
-}
-
-// 敵を描画する関数
-function drawEnemies() {
-    ctx.font = '48px sans-serif';
-    for (let enemy of enemies) {
-        if (enemy.type === 'normal') {
-            ctx.fillStyle = 'red';
-            ctx.fillText('敵', enemy.x, enemy.y + 40);
-        } else {
-            ctx.fillStyle = 'orange';
-            ctx.fillText('攻', enemy.x, enemy.y + 40);
-        }
     }
 }
 
