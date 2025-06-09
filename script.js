@@ -56,7 +56,7 @@ function handleKeyDown(e) {
         fireBullet();
         e.preventDefault();  // スペースキーでのスクロールを防ぐ
     }
-    
+
     if (e.key in keys) {
         keys[e.key] = true;
     }
@@ -76,9 +76,9 @@ document.addEventListener('keyup', handleKeyUp);
 // 当たり判定（矩形同士の衝突判定）
 function checkCollision(rect1, rect2) {
     return rect1.x < rect2.x + rect2.width &&
-           rect1.x + rect1.width > rect2.x &&
-           rect1.y < rect2.y + rect2.height &&
-           rect1.y + rect1.height > rect2.y;
+        rect1.x + rect1.width > rect2.x &&
+        rect1.y < rect2.y + rect2.height &&
+        rect1.y + rect1.height > rect2.y;
 }
 
 // 爆発エフェクトを追加
@@ -152,10 +152,10 @@ function draw() {
     ctx.fillStyle = 'cyan'; // 明るい水色に変更
     ctx.font = '48px sans-serif';
     ctx.fillText('味', player.x, player.y + 40); // +40でベースライン調整
-    
+
     // 弾を描画
     drawBullets();
-    
+
     // 敵を描画
     drawEnemies();
 }
@@ -168,15 +168,15 @@ function checkCollisions() {
             if (checkCollision(bullets[i], enemies[j])) {
                 // 爆発エフェクトを追加
                 addExplosion(bullets[i].x, bullets[i].y);
-                
+
                 // 弾と敵を削除
                 bullets.splice(i, 1);
                 enemies.splice(j, 1);
-                
+
                 // スコアを加算
                 score += 10;
                 updateScore();
-                
+
                 // 内側のループを抜ける
                 break;
             }
@@ -187,18 +187,18 @@ function checkCollisions() {
 let lastTime = 0;
 function gameLoop(timestamp) {
     if (!gameActive) return;
-    
+
     // デルタタイムを計算（秒単位）
     const deltaTime = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
-    
+
     updatePlayer();
     updateStars();
     updateBullets();
     updateEnemies();
     updateExplosions(deltaTime);
     checkCollisions();
-    
+
     // プレイヤーと敵の当たり判定
     for (let enemy of enemies) {
         if (checkCollision(player, enemy)) {
@@ -206,10 +206,10 @@ function gameLoop(timestamp) {
             return;
         }
     }
-    
+
     draw();
     drawExplosions();
-    
+
     animationId = requestAnimationFrame(gameLoop);
 }
 
@@ -237,7 +237,7 @@ function updateBullets() {
     // 弾を移動
     for (let i = bullets.length - 1; i >= 0; i--) {
         bullets[i].x += bulletSpeed;
-        
+
         // 画面外に出た弾を削除
         if (bullets[i].x > canvas.width) {
             bullets.splice(i, 1);
@@ -269,7 +269,7 @@ function updateEnemies() {
     // 敵を移動
     for (let i = enemies.length - 1; i >= 0; i--) {
         enemies[i].x -= enemySpeed;
-        
+
         // 画面外に出た敵を削除
         if (enemies[i].x < -enemies[i].width) {
             enemies.splice(i, 1);
@@ -292,29 +292,29 @@ function resetGame() {
     gameActive = true;
     score = 0;
     updateScore();
-    
+
     // プレイヤーを初期位置に
     player.x = 100;
     player.y = canvas.height / 2;
-    
+
     // 配列をクリア
     bullets.length = 0;
     enemies.length = 0;
     explosions.length = 0;
-    
+
     // 星を再初期化
     stars.length = 0;
     initStars();
-    
+
     // ゲームオーバー画面を非表示に
     gameOverElement.classList.add('hidden');
-    
+
     // イベントリスナーを設定（重複を防ぐため一度削除してから追加）
     document.removeEventListener('keydown', handleKeyDown);
     document.removeEventListener('keyup', handleKeyUp);
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
-    
+
     // ゲームループを再開
     if (animationId) {
         cancelAnimationFrame(animationId);
@@ -328,7 +328,7 @@ function gameOver() {
     gameActive = false;
     cancelAnimationFrame(animationId);
     gameOverElement.classList.remove('hidden');
-    
+
     // ゲームオーバー時にスコアを表示
     gameOverText.textContent = `終\nSCORE: ${score}`;
 }
@@ -343,14 +343,34 @@ function init() {
     document.removeEventListener('keyup', handleKeyUp);
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
-    
+
     // ゲームをリセットして開始
     resetGame();
-    
+
+    // 敵の出現間隔を管理する変数
+    let currentSpawnInterval = enemySpawnInterval;
+
     // 一定間隔で敵を生成
     setInterval(() => {
         if (gameActive) {
             spawnEnemy();
+
+            // スコアが30点ごとに出現間隔を10%短くする
+            const newInterval = Math.max(
+                enemySpawnInterval * Math.pow(0.9, Math.floor(score / 30)),
+                500
+            );
+
+            // 間隔が変更された場合のみ更新
+            if (newInterval !== currentSpawnInterval) {
+                currentSpawnInterval = newInterval;
+                clearInterval(enemySpawnTimer);
+                enemySpawnTimer = setInterval(() => {
+                    if (gameActive) {
+                        spawnEnemy();
+                    }
+                }, currentSpawnInterval);
+            }
         }
     }, enemySpawnInterval);
 }
