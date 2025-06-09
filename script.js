@@ -196,6 +196,7 @@ function gameLoop(timestamp) {
     updateStars();
     updateBullets();
     updateEnemies();
+    updateEnemyBullets();
     updateExplosions(deltaTime);
     checkCollisions();
 
@@ -207,20 +208,30 @@ function gameLoop(timestamp) {
         }
     }
 
+    // プレイヤーと敵の弾の当たり判定を追加
+    for (let bullet of enemyBullets) {
+        if (checkCollision(player, bullet)) {
+            gameOver();
+            return;
+        }
+    }
+
     draw();
     drawExplosions();
+    drawEnemyBullets();
 
     animationId = requestAnimationFrame(gameLoop);
 }
-
-// 弾の配列
-const bullets = [];
-const bulletSpeed = 7;
 
 // 敵の配列と設定
 const enemies = [];
 const enemySpeed = 2;
 const enemySpawnInterval = 2000; // ミリ秒 (2秒)
+let enemySpawnTimer = null; // 敵の生成タイマー
+
+// 弾の配列と設定
+const bullets = [];
+const bulletSpeed = 7;
 
 // 弾を発射する関数
 function fireBullet() {
@@ -256,33 +267,88 @@ function drawBullets() {
 
 // 敵を生成する関数
 function spawnEnemy() {
+    // 敵の種類をランダムに決定（80%で通常の敵、20%で攻撃する敵）
+    const enemyType = Math.random() < 0.8 ? 'normal' : 'shooter';
+
     enemies.push({
         x: canvas.width,
         y: Math.random() * (canvas.height - 48), // 画面内のランダムな高さ
         width: 48,
-        height: 48
+        height: 48,
+        type: enemyType,
+        lastShot: 0  // 最後に弾を撃った時間を記録
     });
 }
 
 // 敵を更新する関数
 function updateEnemies() {
+    const currentTime = Date.now();
+
     // 敵を移動
     for (let i = enemies.length - 1; i >= 0; i--) {
-        enemies[i].x -= enemySpeed;
+        const enemy = enemies[i];
+        enemy.x -= enemySpeed;
+
+        // 攻撃する敵の場合、一定間隔で弾を撃つ
+        if (enemy.type === 'shooter' && currentTime - enemy.lastShot > 2000) { // 2秒ごとに弾を撃つ
+            fireEnemyBullet(enemy);
+            enemy.lastShot = currentTime;
+        }
 
         // 画面外に出た敵を削除
-        if (enemies[i].x < -enemies[i].width) {
+        if (enemy.x < -enemy.width) {
             enemies.splice(i, 1);
         }
     }
 }
 
+// 敵の弾を発射する関数
+function fireEnemyBullet(enemy) {
+    enemyBullets.push({
+        x: enemy.x,
+        y: enemy.y + enemy.height / 2,
+        width: 24,
+        height: 24
+    });
+}
+
+// 敵の弾の配列
+const enemyBullets = [];
+const enemyBulletSpeed = 5;
+
+// 敵の弾を更新する関数
+function updateEnemyBullets() {
+    // 弾を移動
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+        enemyBullets[i].x -= enemyBulletSpeed;
+
+        // 画面外に出た弾を削除
+        if (enemyBullets[i].x < -enemyBullets[i].width) {
+            enemyBullets.splice(i, 1);
+        }
+    }
+}
+
+// 敵の弾を描画する関数
+function drawEnemyBullets() {
+    ctx.fillStyle = 'orange';
+    ctx.font = '24px sans-serif';
+    for (let bullet of enemyBullets) {
+        ctx.fillText('矢', bullet.x, bullet.y);
+    }
+}
+
 // 敵を描画する関数
 function drawEnemies() {
-    ctx.fillStyle = 'red'; // 赤色（そのまま）
     ctx.font = '48px sans-serif';
     for (let enemy of enemies) {
-        ctx.fillText('敵', enemy.x, enemy.y + 40); // +40でベースライン調整
+        if (enemy.type === 'normal') {
+            ctx.fillStyle = 'red';
+            ctx.fillText('敵', enemy.x, enemy.y + 40);
+        } else {
+            ctx.fillStyle = 'orange';
+            ctx.fillText('攻', enemy.x, enemy.y + 40);
+        }
     }
 }
 
@@ -300,6 +366,7 @@ function resetGame() {
     // 配列をクリア
     bullets.length = 0;
     enemies.length = 0;
+    enemyBullets.length = 0;
     explosions.length = 0;
 
     // 星を再初期化
@@ -327,6 +394,9 @@ function resetGame() {
 function gameOver() {
     gameActive = false;
     cancelAnimationFrame(animationId);
+    if (enemySpawnTimer) {
+        clearInterval(enemySpawnTimer);
+    }
     gameOverElement.classList.remove('hidden');
 
     // ゲームオーバー時にスコアを表示
@@ -351,7 +421,7 @@ function init() {
     let currentSpawnInterval = enemySpawnInterval;
 
     // 一定間隔で敵を生成
-    setInterval(() => {
+    enemySpawnTimer = setInterval(() => {
         if (gameActive) {
             spawnEnemy();
 
